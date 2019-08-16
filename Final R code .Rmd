@@ -1,0 +1,768 @@
+---
+title: "Analysis"
+output: html_document
+---
+Group 4 Project Deliverble 2: Working R code for analysis
+Author: Annie An-Ting Cheng (ac4470), Yuwanee Ouinong (yo2296), Soisiree (JJ) Santivisat (ss5715)
+
+
+Import clean data
+```{r}
+setwd("~/Desktop/Framwork 2/Project")
+df=read.csv('cleaned_data.csv')
+```
+
+# Explore Data
+```{r}
+str(df)
+```
+
+Change variable name
+```{r}
+df$review = df$reviews.text
+df$points = df$reviews.rating
+```
+
+```{r}
+median(df$points) #median points
+mean(df$points) #mean points
+
+library(dplyr)
+df%>%
+  summarize(average_rating = mean(points), median_rating = median(points))
+
+summary(df$points) #median 5, mean = 4.598, min = 1, max = 5
+```
+
+
+Convert review as character
+```{r}
+class(df$review)
+df$review=as.character(df$review)
+df$title=as.character(df$reviews.title)
+class(df$review)
+mean(df$points)
+```
+
+Do people rate long reviews as being more helpful?
+
+Distribution of point
+```{r}
+#install.packages('ggplot2');install.packages('ggthemes')
+library(ggplot2); library(ggthemes) 
+ggplot(data=df,aes(x=points))+ geom_histogram(fill='sienna')+ theme_economist()
+```
+
+
+Character, Words and Sentences for all Reviews
+
+```{r}
+mean_char = mean(nchar(df$review)); mean_char
+median_char = median(nchar(df$review)); median_char
+```
+
+
+```{r}
+df$review[555]
+```
+
+```{r}
+#install.packages('stringr')
+library(stringr)
+mean_words = mean(str_count(string = df$review,pattern = '\\S+')); mean_words
+median_words = median(str_count(string = df$review,pattern = '\\S+')); median_words
+```
+Description length and points
+```{r}
+#Description length in characters
+cor.test(nchar(df$review),df$points)
+
+#Description length in words
+cor.test(str_count(string = df$review,pattern = '\\S+'),df$points)
+
+#Description length in sentences
+cor.test(str_count(string = df$review,pattern = "[A-Za-z,;'\"\\s]+[^.!?]*[.?!]"),df$points)
+```
+
+#Do screaming and exclamation in text affect ratings?
+
+Screaming Reviews
+```{r}
+proportionUpper = str_count(df$review,pattern='[A-Z]')/nchar(df$review)
+cor(proportionUpper,df$points)
+```
+Exclamation marks
+```{r}
+summary(str_count(df$review,pattern='!')) 
+proportionExclamation = str_count(df$review,pattern='!')/nchar(df$review)
+cor(proportionExclamation,df$points)
+```
+
+#How many times each pair of words occurs together in the reviews?
+
+Networks of Review and Title Words- how many times each pair of words occurs together in a review.
+
+In terms of Review
+```{r}
+review_desc <- tibble(id = df$id, 
+                        desc = df$review)
+
+review_desc %>% 
+  select(desc) %>% 
+  sample_n(5)
+
+library(tidytext)
+
+output<- 'word'
+input<- 'desc'
+
+review_desc <- review_desc %>% 
+  unnest_tokens_(output, input) %>% 
+  anti_join(stop_words)
+review_desc
+```
+
+```{r}
+#install.packages('widyr')
+library(widyr)
+
+desc_word_pairs <- review_desc %>% 
+  pairwise_count(word, id, sort = TRUE, upper = FALSE)
+
+desc_word_pairs
+```
+```{r}
+#install.packages('ggraph')
+library(ggplot2)
+library(igraph)
+library(ggraph)
+
+set.seed(1234)
+desc_word_pairs %>%
+  filter(n >= 18) %>%
+  graph_from_data_frame() %>%
+  ggraph(layout = "fr") +
+  geom_edge_link(aes(edge_alpha = n, edge_width = n), edge_colour = "cyan4") +
+  geom_node_point(size = 5) +
+  geom_node_text(aes(label = name), repel = TRUE, 
+                 point.padding = unit(0.2, "lines")) +
+  theme_void()
+```
+```{r}
+set.seed(1234)
+desc_word_pairs %>%
+  filter(n >= 22) %>%
+  graph_from_data_frame() %>%
+  ggraph(layout = "fr") +
+  geom_edge_link(aes(edge_alpha = n, edge_width = n), edge_colour = "cyan4") +
+  geom_node_point(size = 5) +
+  geom_node_text(aes(label = name), repel = TRUE, 
+                 point.padding = unit(0.2, "lines")) +
+  theme_void()
+```
+
+In terms of Title
+```{r}
+review_tit <- tibble(id = df$id, 
+                        desc = df$title)
+
+review_tit %>% 
+  select(desc) %>% 
+  sample_n(5)
+
+output<- 'word'
+input<- 'desc'
+
+review_tit <- review_tit %>% 
+  unnest_tokens_(output, input) %>% 
+  anti_join(stop_words)
+review_tit
+```
+```{r}
+tit_word_pairs <- review_tit %>% 
+  pairwise_count(word, id, sort = TRUE, upper = FALSE)
+
+tit_word_pairs
+```
+```{r}
+set.seed(1234)
+tit_word_pairs %>%
+  filter(n >= 8) %>%
+  graph_from_data_frame() %>%
+  ggraph(layout = "fr") +
+  geom_edge_link(aes(edge_alpha = n, edge_width = n), edge_colour = "cyan4") +
+  geom_node_point(size = 5) +
+  geom_node_text(aes(label = name), repel = TRUE, 
+                 point.padding = unit(0.2, "lines")) +
+  theme_void()
+```
+```{r}
+
+tit_pair1=grepl("Love", df$title)
+tit_pair2=grepl("buy", df$title)
+tit_pair_1=which(tit_pair1==TRUE);tit_pair_1
+tit_pair_2=which(tit_pair2==TRUE);tit_pair_2
+
+#df$title[c(1,101,146)]
+```
+
+#What are the most frequent words in reviews?
+
+Most common words
+1. Using freq_terms from library (qdap)
+
+```{r}
+install.packages('qdap')
+library(qdap)
+freq_terms(text.var = df$review,top = 25)
+```
+
+
+```{r}
+freq_terms(text.var=df$review,top=25,stopwords = Top200Words)
+plot(freq_terms(text.var=df$review,top=25,stopwords = Top200Words))
+```
+
+The word "wine" "it's", and "i'm" should be removed.
+
+Words that make a review useful
+```{r}
+plot(freq_terms(text.var=df$review,top=25,stopwords = c(Top200Words,"wine","it's","i'm")))
+```
+
+2. Using (tm) package
+
+Create a corpus
+
+```{r}
+#install.packages('tm')
+library(tm)
+corpus = Corpus(VectorSource(df$review)) 
+#Try examine review 777
+corpus[[777]]
+corpus[[777]][1]
+```
+
+Clean text
+
+```{r}
+#convert to lower case
+corpus = tm_map(corpus,FUN = content_transformer(tolower)) 
+#Remove punctuation
+corpus = tm_map(corpus,FUN = removePunctuation) 
+#Remove stop words
+corpus = tm_map(corpus,FUN = removeWords,c(stopwords('english'))) 
+#Strip white space
+corpus = tm_map(corpus,FUN = stripWhitespace)
+#Then, let's explore review 777 again
+corpus[[777]][1]
+```
+
+Create dictionary
+
+```{r}
+dict = findFreqTerms(DocumentTermMatrix(Corpus(VectorSource(df$review))),lowfreq =0)
+dict_corpus = Corpus(VectorSource(dict))
+```
+
+Stem document
+
+```{r}
+corpus = tm_map(corpus,FUN = stemDocument) 
+corpus[[777]][1]
+```
+
+Create a document term matrix
+
+```{r}
+#Create a document term matrix
+dtm = DocumentTermMatrix(corpus) 
+#Remove sparse term
+xdtm = removeSparseTerms(dtm,sparse = 0.95) 
+#Complete stems
+xdtm = as.data.frame(as.matrix(xdtm))
+colnames(xdtm) = stemCompletion(x = colnames(xdtm),dictionary = dict_corpus,type='prevalent') 
+colnames(xdtm) = make.names(colnames(xdtm))
+#Browse tokens
+sort(colSums(xdtm),decreasing = T)
+```
+
+Plot the top 25 words from Document Term Matrix
+```{r}
+freq <- sort(colSums(as.matrix(dtm)), decreasing=TRUE)
+barplot(freq[1:25], col = "tan", las = 2)
+```
+
+
+Explore deeper to the most frequent words. For example, reveiws with the word 'love'.
+
+```{r}
+love=df[str_detect(string=tolower(df$review),pattern='love'),];
+love[1:3,'review']
+```
+
+How does the word 'love' relate to point ?
+
+```{r}
+hist(love$points,main = "Histogram of reviews with the word 'love'",xlab="Points",col="pink",breaks=5)
+```
+
+How does the word 'love' relate to brand ?
+
+```{r}
+brand_love=sort(table(love$brand2),decreasing = T);brand_love
+barplot(brand_love[1:10], col = "darksalmon", las = 2)
+
+```
+
+
+
+# What are the most frequent words in titles? 
+
+```{r}
+library(qdap)
+freq_terms(text.var = df$reviews.title,top = 25)
+
+```
+
+
+```{r}
+freq_terms(text.var=df$reviews.title,top=25,stopwords = Top200Words)
+plot(freq_terms(text.var=df$reviews.title,top=25,stopwords = Top200Words))
+```
+
+
+Examples of titles with the word 'best'
+
+```{r}
+library(stringr)
+best=df[str_detect(string=tolower(df$reviews.title),'best'),];best[1:20,'reviews.title']
+
+```
+
+How do tiles with 'best' distibuted?
+
+```{r}
+hist(best$reviews.rating,main = "Points frequency for titles with the word 'best'",xlab="Points",col="darkseagreen2",breaks=5)
+```
+
+
+
+## Sentiment analysis
+
+```{r}
+#install.packages('tidytext')
+library(dplyr); library(tidytext) 
+df %>%
+  select(id,review)%>%
+  group_by(id)%>%
+  unnest_tokens(output = word,input=review)%>% 
+  count()
+```
+
+Total words
+
+```{r}
+df %>%
+  select(id,review)%>%
+  group_by(id)%>%
+  unnest_tokens(output = word,input=review)%>% 
+  ungroup()%>%
+  count()
+```
+
+
+## Does positive words in review influence the ratings (points)?
+# Bing Lexicon - Explore positive and negative words in review
+First 50 words in the Bing Lexicon
+```{r}
+as.data.frame(get_sentiments('bing'))[1:50,]
+```
+
+
+```{r}
+df%>%
+  group_by(id)%>%
+  unnest_tokens(output = word, input = review)%>% 
+  inner_join(get_sentiments('bing'))%>% 
+  group_by(sentiment)
+```
+
+Positive and Negative Words in review
+```{r}
+df%>%
+  group_by(id)%>%
+  unnest_tokens(output = word, input = review)%>% 
+  inner_join(get_sentiments('bing'))%>% 
+  group_by(sentiment)%>%
+  count()
+```
+
+Graph showing positive and negative reviews
+```{r}
+df%>%
+  group_by(id)%>%
+  unnest_tokens(output = word, input = review)%>%
+  inner_join(get_sentiments('bing'))%>%
+  group_by(sentiment)%>%
+  count()%>% 
+  ggplot(aes(x=sentiment,y=n,fill=sentiment))+geom_col()+theme_economist()+guides(fill=F)
+```
+
+Proportion of positive word
+
+```{r}
+df %>%
+  select(id,review)%>%
+  group_by(id)%>% 
+  unnest_tokens(output=word,input=review)%>% 
+  ungroup()%>% 
+  inner_join(get_sentiments('bing'))%>% 
+  group_by(sentiment)%>%
+  summarize(n = n())%>% 
+  mutate(proportion = n/sum(n))
+```
+
+
+Positive Review, helpful?
+
+```{r}
+df %>% 
+  select(id,review,points) %>% 
+  group_by(id)%>%
+  unnest_tokens(output=word,input=review)%>% 
+  ungroup()%>% 
+  inner_join(get_sentiments('bing'))%>%
+  group_by(points,sentiment)%>% 
+  summarize(n = n())%>%
+  mutate(proportion = n/sum(n))
+```
+
+
+```{r}
+df %>%
+  select(id,review,points)%>%
+  group_by(id)%>%
+  unnest_tokens(output=word,input=review)%>%
+  ungroup()%>%
+  inner_join(get_sentiments('bing'))%>%
+  group_by(points,sentiment)%>%
+  summarize(n = n())%>%
+  mutate(proportion = n/sum(n))%>%
+  ggplot(aes(x=points,y=proportion,fill=sentiment))+geom_col()+theme_economist()
+```
+
+Fraction of Positive Words in each review
+
+```{r}
+df%>%
+  group_by(id)%>%
+  unnest_tokens(output = word, input = review)%>% 
+  inner_join(get_sentiments('bing'))%>%
+  group_by(id)%>%
+  summarize(positivity = sum(sentiment=='positive')/n())
+```
+
+Let us see if reviews with a lot of positive words are rated favorably. (Correlation of positive review and points)
+
+```{r}
+df%>%
+  group_by(id)%>%
+  unnest_tokens(output = word, input = review)%>% 
+  inner_join(get_sentiments('bing'))%>% 
+  group_by(id,points)%>%
+  summarize(positivity = sum(sentiment=='positive')/n())%>% 
+  ungroup()%>%
+  summarize(correlation = cor(positivity,points))
+```
+
+Common sentiment words
+```{r}
+df %>% 
+  select(id,review,points) %>% 
+  group_by(id)%>%
+  unnest_tokens(output=word,input=review)%>% 
+  ungroup()%>% 
+  inner_join(get_sentiments('bing'))%>%
+  group_by(word,sentiment)%>% 
+  summarize(n = n()) %>%
+  arrange(desc(n))
+```
+
+Common sentiment words in bar chart
+```{r}
+bing_common_word <- df %>% 
+  select(id,review,points) %>% 
+  group_by(id)%>%
+  unnest_tokens(output=word,input=review)%>% 
+  ungroup()%>% 
+  inner_join(get_sentiments('bing'))%>%
+  group_by(word,sentiment)%>% 
+  summarize(n = n()) %>%
+  arrange(desc(n))
+
+
+  bing_common_word %>% 
+    group_by(sentiment) %>%
+    top_n(10) %>%
+    ggplot(aes(reorder(word, n), n, fill = sentiment)) +
+      geom_bar(alpha = 0.8, stat = "identity", show.legend = FALSE) +
+      facet_wrap(~sentiment, scales = "free_y") +
+      labs(y = "Contribution to sentiment", x = NULL) +
+      coord_flip()
+```
+
+Now, we want to explore the correlation between each top 3 terms in each sentiment (positive and negative) and the points
+```{r}
+#Top 5 negative words
+top5_negative=str_count(string=tolower(df$review),pattern='bloody|dirty|bitter|disappointed|bad')/nchar(df$review)
+cor(top5_negative,df$points)
+
+#Top 5 positive words
+top5_positive=str_count(string=tolower(df$review),pattern='great|good|love|like|best')/nchar(df$review)
+cor(top5_positive,df$points)
+
+#histogram of no. of reviews of Top 5 negative word
+#bloody
+bloody=df[str_detect(string=tolower(df$review),pattern='bloody'),]
+hist(bloody$points,main = "Histogram of reviews with the word 'bloody'",xlab="Points",col="red",breaks=5)
+#dirty
+dirty=df[str_detect(string=tolower(df$review),pattern='dirty'),]
+hist(dirty$points,main = "Histogram of reviews with the word 'dirty'",xlab="Points",col="red",breaks=5)
+#bitter
+bitter=df[str_detect(string=tolower(df$review),pattern='bitter'),]
+hist(bitter$points,main = "Histogram of reviews with the word 'bitter'",xlab="Points",col="red",breaks=5)
+#disappointed
+disappointed=df[str_detect(string=tolower(df$review),pattern='disappointed'),]
+hist(disappointed$points,main = "Histogram of reviews with the word 'disappointed'",xlab="Points",col="red",breaks=5)
+#bad
+bad=df[str_detect(string=tolower(df$review),pattern='bad'),]
+hist(bad$points,main = "Histogram of reviews with the word 'bad'",xlab="Points",col="red",breaks=5)
+
+#histogram of no. of reviews of Top 5 positive word
+#great
+great=df[str_detect(string=tolower(df$review),pattern='great'),]
+hist(great$points,main = "Histogram of reviews with the word 'great'",xlab="Points",col="green",breaks=5)
+#good
+good=df[str_detect(string=tolower(df$review),pattern='good'),]
+hist(good$points,main = "Histogram of reviews with the word 'good'",xlab="Points",col="green",breaks=5)
+#love
+love=df[str_detect(string=tolower(df$review),pattern='love'),]
+hist(love$points,main = "Histogram of reviews with the word 'love'",xlab="Points",col="green",breaks=5)
+#like
+like=df[str_detect(string=tolower(df$review),pattern='like'),]
+hist(like$points,main = "Histogram of reviews with the word 'like'",xlab="Points",col="green",breaks=5)
+#best
+best=df[str_detect(string=tolower(df$review),pattern='best'),]
+hist(best$points,main = "Histogram of reviews with the word 'best'",xlab="Points",col="green",breaks=5)
+```
+
+
+# Does emotion in review affect the rating (points)?
+#NRC Lexicon - Explore emotion in review
+
+```{r}
+get_sentiments('nrc')%>% 
+  group_by(sentiment)%>% 
+  count()
+```
+
+Emotions in Reviews
+
+```{r}
+df%>%
+  group_by(id)%>%
+  unnest_tokens(output = word, input = review)%>% 
+  inner_join(get_sentiments('nrc'))%>%
+  group_by(sentiment)%>% 
+  count()
+```
+
+Compare in sentiment (emotions) in bar chart
+```{r}
+df%>%
+  group_by(id)%>%
+  unnest_tokens(output = word, input = review)%>%
+  inner_join(get_sentiments('nrc'))%>%
+  group_by(sentiment)%>%
+  count()%>%
+  ggplot(aes(x=reorder(sentiment,X = n),y=n,fill=sentiment))+geom_col()+guides(fill=F)+coord_flip()+theme_wsj()
+```
+
+Ratings of all Reviews based on Emotion Expressed
+```{r}
+df%>%
+  group_by(id)%>%
+  unnest_tokens(output = word, input = review)%>%
+  inner_join(get_sentiments('nrc'))%>%
+  group_by(id,sentiment,points)%>%
+  count()%>%
+  group_by(sentiment, points)%>%
+  summarize(n = mean(n))%>%
+  data.frame()
+```
+```{r}
+df%>%
+  group_by(id)%>%
+  unnest_tokens(output = word, input = review)%>%
+  inner_join(get_sentiments('nrc'))%>%
+  group_by(id,sentiment,points)%>%
+  count()%>%
+  group_by(sentiment, points)%>%
+  summarize(n = mean(n))%>%
+  ungroup()%>%
+  ggplot(aes(x=points,y=n,fill=points))+
+  geom_col()+
+  facet_wrap(~sentiment)+
+  guides(fill=F)+coord_flip()
+```
+Correlation between emotion expressed and points.
+ The correlation of all the sentiment vs points (ratings) is very low, thus there is no correlation
+```{r}
+df%>%
+  group_by(id)%>%
+  unnest_tokens(output = word, input = review)%>%
+  inner_join(get_sentiments('nrc'))%>%
+  group_by(id,sentiment,points)%>%
+  count()%>%
+  ungroup()%>%
+  group_by(sentiment)%>%
+  summarize(correlation = cor(n,points))
+```
+
+Scatterplot of relationship between emotion expressed and points
+```{r}
+df%>%
+  group_by(id)%>%
+  unnest_tokens(output = word, input = review)%>%
+  inner_join(get_sentiments('nrc'))%>%
+  group_by(id,sentiment,points)%>%
+  count()%>%
+  ungroup()%>%
+  group_by(sentiment)%>%
+  ggplot(aes(x=points,y=n))+geom_point()+facet_wrap(~sentiment)+geom_smooth(method='lm',se=F)
+```
+
+
+#afinn Lexicon
+
+```{r}
+as.data.frame(get_sentiments('afinn'))[1:25,]
+```
+
+Next, we will examine the sentiment of all reviews.
+
+
+```{r}
+df %>%
+  select(id,review)%>%
+  group_by(id)%>%
+  unnest_tokens(output=word,input=review)%>%
+  inner_join(get_sentiments('afinn'))%>%
+  summarize(reviewSentiment = mean(score))%>%
+  ungroup()%>%
+  summarize(min=min(reviewSentiment),max=max(reviewSentiment),median=median(reviewSentiment),mean=mean(reviewSentiment))
+```
+
+Distribution of sentiments
+```{r}
+df %>%
+  select(id,review)%>%
+  group_by(id)%>%
+  unnest_tokens(output=word,input=review)%>%
+  inner_join(get_sentiments('afinn'))%>%
+  summarize(reviewSentiment = mean(score))%>%
+  ungroup()%>%
+  ggplot(aes(x=reviewSentiment,fill=reviewSentiment>0))+
+  geom_histogram(binwidth = 0.1)+
+  scale_x_continuous(breaks=seq(-5,5,1))+scale_fill_manual(values=c('tomato','seagreen'))+
+  guides(fill=F)+
+  theme_wsj()
+```
+
+
+# Prediction
+
+Combine data about points (review rating) with the document-term matrix
+```{r}
+data_tf = cbind(points = df$points,xdtm)
+data_tfidf = cbind(points = df$points,xdtm_tfidf)
+```
+
+## Predictive Models - with term frequency weighting
+### Split data
+```{r}
+set.seed(617)
+split = sample(1:nrow(data_tf),size = 0.7*nrow(data_tf))
+train = data_tf[split,]
+test = data_tf[-split,]
+```
+
+
+#### Cart Model
+```{r}
+install.packages("rpart"); install.packages("rpart.plot")
+library(rpart); library(rpart.plot)
+tree = rpart(points~.,train)
+rpart.plot(tree)
+```
+Cart Predictions
+```{r}
+pred_tree = predict(tree,newdata=test)
+rmse_tree = sqrt(mean((pred_tree - test$points)^2)); rmse_tree #0.9888399
+```
+
+#### Regression Model
+Assume alpha = 0.05, if p < 0.05, then that term influences points
+```{r}
+reg = lm(points~.,train)
+summary(reg)
+```
+Regression predictions
+```{r}
+pred_reg = predict(reg, newdata=test)
+rmse_reg = sqrt(mean((pred_reg-test$points)^2)); rmse_reg #0.9394013
+```
+
+## Predictive Models - with Term Frequency Inverse Document Frequency weighting
+### Split data
+```{r}
+set.seed(617)
+split = sample(1:nrow(data_tfidf),size = 0.7*nrow(data_tfidf))
+train = data_tfidf[split,]
+test = data_tfidf[-split,]
+```
+
+#### Cart Model
+```{r}
+#install.packages("rpart"); install.packages("rpart.plot")
+library(rpart); library(rpart.plot)
+tree = rpart(points~.,train)
+rpart.plot(tree)
+```
+Cart Predictions
+```{r}
+pred_tree = predict(tree,newdata=test)
+rmse_tree = sqrt(mean((pred_tree - test$points)^2)); rmse_tree #0.9888399
+```
+
+#### Regression Model
+Assume alpha = 0.05, if p < 0.05, then that term influences points
+```{r}
+reg = lm(points~.,train)
+summary(reg)
+```
+
+Regression predictions
+```{r}
+pred_reg = predict(reg, newdata=test)
+rmse_reg = sqrt(mean((pred_reg-test$points)^2)); rmse_reg #0.9394013
+```
+
+
+
+
+
+
+
+

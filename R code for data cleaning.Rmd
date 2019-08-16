@@ -1,0 +1,140 @@
+---
+title: "Data Cleaning"
+output: html_document
+---
+
+```{r, include=FALSE}
+setwd("~/Desktop/Framwork 2/Project")
+raw_data=read.csv('RawData.csv')
+```
+
+# Explore data
+The dataset contains 34 variables regarding wine reviews with 1231 observations.
+```{r}
+str(raw_data)
+```
+
+## Select variables for analysis
+We can eliminate any variables that we found not useful such as asins, dateAdded, dateUpdated, descriptions, dimension, ean, flavors, keys, reviews.date, reviews.dateAdded, reviews.dateSeen, reviews.didPurchase, reviews.sourceURLs, sizes, sourceURLs, upc
+
+```{r}
+raw_data2 = raw_data[,-c(2,5:11,17:20,25,31:33)]
+str(raw_data2)
+```
+
+## Check for missing values
+By using is.na( ), we found that the data contains missing values. However, some observations in the factor variables were recored as “” (or blank), which could not be detected by is.na( ). Therefore, we had to check for those blank values in each column in the next step.
+```{r}
+any(is.na(raw_data2))
+sum(is.na(raw_data2))
+```
+
+## Check for missing values in numerical variables
+0% of data are missing for the variable reviews.rating
+41% of data are missing for the variable reviews.id
+62.55% of data are missing for the variable reviews.numHelpful
+49.47% of data are missing for the variable reviews.doRecommend
+```{r}
+sum(is.na(raw_data2$reviews.rating))/nrow(raw_data2)*100
+sum(is.na(raw_data2$reviews.id))/nrow(raw_data2)*100
+sum(is.na(raw_data2$reviews.numHelpful))/nrow(raw_data2)*100
+sum(is.na(raw_data2$reviews.doRecommend))/nrow(raw_data2)*100
+```
+
+## Check for missing values in factor variables
+Since some blank observations were recorded as "", we could not detect them with is.na( ).
+Thus, we will explore how many "" appeared in each variable and counted them as missing values.
+```{r}
+#id
+sum(raw_data2$id == '')/nrow(raw_data2)*100 #0%
+
+#brand
+sum(raw_data2$brand == '')/nrow(raw_data2)*100 #0%
+
+#categories
+sum(raw_data2$categories == '')/nrow(raw_data2)*100 #0%
+
+#manufacturer
+sum(raw_data2$manufacturer == '')/nrow(raw_data2)*100 #63.03818%
+
+#manufacturerNumber
+sum(raw_data2$manufacturerNumber == '')/nrow(raw_data2)*100 #22.25833%
+
+#name
+sum(raw_data2$name == '')/nrow(raw_data2)*100 #0%
+
+#primaryCategories
+sum(raw_data2$primaryCategories == '')/nrow(raw_data2)*100 #0%
+
+#quantities
+sum(raw_data2$quantities == '')/nrow(raw_data2)*100 #85.29651%
+
+#reviews.text
+sum(raw_data2$reviews.text == '')/nrow(raw_data2)*100 #0.08123477%
+
+#reviews.title
+sum(raw_data2$reviews.title == '')/nrow(raw_data2)*100 #3.086921%
+
+#reviews.userCity
+sum(raw_data2$reviews.userCity == '')/nrow(raw_data2)*100 #93.34%
+
+#reviews.userProvince
+sum(raw_data2$reviews.userProvince == '')/nrow(raw_data2)*100 #99.26889%
+
+#reviews.username
+sum(raw_data2$reviews.username == '')/nrow(raw_data2)*100 #0.08123477%
+
+#weight
+sum(raw_data2$weight == '')/nrow(raw_data2)*100 #42.97319%
+```
+
+Since reviews.id, reviews.numHelpful, reviews.doRecommend, manufacturer, manufacturerNumber quantities, reviews.userCity, reviews.userProvince, and weight have significant amount of missing data (more than 10%), we decide to drop these variables.
+```{r}
+library(dplyr)
+library(tidyverse)
+raw_data3 <- select(raw_data2, -reviews.id, -reviews.numHelpful, -reviews.doRecommend,-manufacturer, -manufacturerNumber, - quantities, - reviews.userCity, -reviews.userProvince, - weight)
+
+str(raw_data3)
+```
+
+We discard the rows containing missing values for reviews.text, reviews.title, and reviews.username because there are not many missing values. We now have 9 variables with 1191 observations.
+```{r}
+raw_data4 = raw_data3
+raw_data4 = raw_data3[!(raw_data3$reviews.text == '' | raw_data3$reviews.title == '' | raw_data3$reviews.username == ''),]
+str(raw_data4)
+```
+
+
+To confirm that there was no “” left in those variables.
+```{r}
+sum(raw_data4$reviews.text == '')
+sum(raw_data4$reviews.title == '')
+sum(raw_data4$reviews.username == '')
+```
+
+For the categorical variable 'brand', there are over 100 categories while some categories contain only 1 observation. Therefore, we regroup the brand by keeping the top 20 brands and assigning the rest to 'other'.
+We then have 21 brand categories in total. 
+```{r}
+raw_data4$brand2=raw_data4$brand
+class(raw_data4$brand2)
+raw_data4$brand2=as.character(raw_data4$brand2)
+raw_data4$brand2=ifelse(raw_data4$brand2!='Jim Beam' &raw_data4$brand2!='Bittermens' &raw_data4$brand2!='Vintage Wine Estates'
+                 &raw_data4$brand2!='Master of Mixes'&raw_data4$brand2!='Cocktail Artist'&raw_data4$brand2!='Clamato'
+                 &raw_data4$brand2!='Zing Zang'&raw_data4$brand2!='Mr. & Mrs. T' &raw_data4$brand2!='Dirty Sue' 
+                 &raw_data4$brand2!='Jose Cuervo'
+                 &raw_data4$brand2!='Sauza'&raw_data4$brand2!='Jim Beam Black'&raw_data4$brand2!='Powell Mahoney'
+                 &raw_data4$brand2!="Jack Daniel's"&raw_data4$brand2!='Goya Food'
+                 &raw_data4$brand2!='Pinnacle'
+                 &raw_data4$brand2!='Wine Cube153'&raw_data4$brand2!='KNOB CREEK'&raw_data4$brand2!='Cobblestone Bread Co.'
+                 &raw_data4$brand2!="Angostora","Other",raw_data4$brand2)
+raw_data4$brand2=as.factor(raw_data4$brand2)
+table(raw_data4$brand2)
+
+```
+
+
+## Export the clean data to .csv file
+```{r}
+write.csv(raw_data4, 'cleaned_data.csv')
+```
+
